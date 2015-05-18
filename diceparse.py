@@ -19,7 +19,7 @@ TARG_MAP = {
 OpTuple = collections.namedtuple('OpTuple', 'partial operator operand')
 RollSpec = collections.namedtuple(
     'RollSpec',
-    'input count sides modifier target'
+    'input pool count sides modifier target'
 )
 
 
@@ -27,7 +27,12 @@ def make_rollspecs(parser, instring):
     scanner = parser.scanString(instring)
     for res, start, end in scanner:
         st = instring[start:end]
+        print(st, res)
         yield RollSpec(st, **res)
+
+
+def pool_action(s, loc, tok):
+    return tok[1]
 
 
 def int_action(s, loc, tok):
@@ -58,21 +63,33 @@ targ_op = pp.Or(list(TARG_MAP.keys()))
 target = (targ_op + integer).setParseAction(mod_action(TARG_MAP))
 target = pp.Optional(target('target'), None)
 
+# POOL
+pool = pp.Optional(('!' + integer).setParseAction(pool_action)('pool'), None)
+
 # BASIC SYNTAX
-basic = integer('count') + pp.Literal('d') + integer('sides')
+basic = integer('count') + 'd' + integer('sides')
 
 # BTING IT ALL TOGETHER
-roll = basic + modifier + target
+roll = basic + pool + modifier + target
 
 
 def roller(rollspec):
-    rolls = [random.randint(1, rollspec.sides) for _ in range(rollspec.count)]
-    total = sum(rolls)
     success = None
-    if rollspec.modifier:
-        total = rollspec.modifier.partial(total)
-    if rollspec.target:
-        success = rollspec.target.partial(total)
+    rolls = [random.randint(1, rollspec.sides) for _ in range(rollspec.count)]
+    if rollspec.pool:
+        total = sum(x >= rollspec.pool for x in rolls)
+        if rollspec.modifier:
+            total = rollspec.modifier.partial(total)
+        if rollspec.target:
+            success = rollspec.target.partial(total)
+        else:
+            success = total >= 1
+    else:
+        total = sum(rolls)
+        if rollspec.modifier:
+            total = rollspec.modifier.partial(total)
+        if rollspec.target:
+            success = rollspec.target.partial(total)
     return rollspec, rolls, total, success
 
 
