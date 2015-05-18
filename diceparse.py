@@ -11,10 +11,8 @@ OP_MAP = {
     '/': operator.truediv,
 }
 TARG_MAP = {
-    '<=': operator.le,
-    '>=': operator.ge,
-    '<': operator.lt,
-    '>': operator.gt,
+    '<': operator.le,
+    '>': operator.ge,
 }
 
 
