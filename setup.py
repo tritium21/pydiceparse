@@ -8,4 +8,7 @@ setup(
     description=("Dice syntax parser and roller"),
     license="BSD",
     py_modules=["diceparse"],
+    install_requires=[
+        'pyparsing',
+    ],
 )
