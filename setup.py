@@ -7,5 +7,5 @@ setup(
     author_email="tritium@sdamon.com",
     description=("Dice syntax parser and roller"),
     license="BSD",
-    py_modules="diceparse",
+    py_modules=["diceparse"],
 )
