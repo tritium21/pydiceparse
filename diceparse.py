@@ -5,8 +5,8 @@ from operator import add, sub, ge, le
 from random import randint
 
 from pyparsing import (
-        CaselessLiteral as Literal,
-        nums, NotAny, Optional, Or, Word, WordStart
+    CaselessLiteral as Literal,
+    nums, NotAny, Optional, Or, Word, WordStart
 )
 
 
@@ -14,6 +14,7 @@ def make_optional(parser, action, name):
     op = Optional(parser.setParseAction(action)(name), None)
     no = NotAny(parser)
     return op, no
+
 
 # Data types
 def integer_action(s, loc, tok):
@@ -28,6 +29,7 @@ fate_type = integer('count') + Literal('df')('type') + NotAny(integer)
 
 # Operator base
 Operation = namedtuple('Operation', 'partial operator operand')
+
 
 def operator_action(mapping, swap=False):
     def closure(s, loc, tok):
@@ -59,6 +61,7 @@ compare, no_compare = make_optional(
 )
 
 suffix = modifier+compare
+
 
 # Repetitions
 def pos_action(pos):
@@ -105,6 +108,8 @@ def fate_roller(rs):
     if rs.modifier:
         total = rs.modifier.partial(total)
     success = total >= 1
+    _str = {-1: "-", 0: " ", 1: "+"}
+    rolls = [_str[d] for d in rolls]
     spec = ResultSpec(rolls, total, success)
     return spec
 
@@ -113,7 +118,7 @@ def explode(rolls, sides, trigger):
     newrolls = []
     _last = rolls
     while True:
-        e = sum(d>=trigger for d in _last)
+        e = sum(d >= trigger for d in _last)
         if e:
             _last = [randint(1, sides) for _ in range(e)]
             newrolls.extend(_last)
@@ -130,8 +135,8 @@ def standard_roller(rs):
     if rs.pool:
         if rs.explode:
             rolls.extend(explode(rolls, rs.sides, rs.explode))
-        total = sum(d>=rs.pool for d in rolls)
-        success = total>=1
+        total = sum(d >= rs.pool for d in rolls)
+        success = total >= 1
     else:
         total = sum(rolls)
     if rs.modifier:
@@ -153,10 +158,36 @@ def roller(rs):
     return Result(rs, _results, _total)
 
 
+def roll_format(result, person='You'):
+    _suc = {True: ' Success', False: ' Failure', None: ''}
+    rollspec = result.rollspec
+    rollstr = rollspec.rollstr
+    total = result.total
+    results = result.results
+    if rollspec.modifier:
+        mod = ' {}{}'.format(*rollspec.modifier[1:])
+    else:
+        mod = ''
+    output = []
+    roll_fmt = '{person} rolled {rollstr}: [{rolls}]{mod} = {total}{success}'
+    total_fmt = 'Total: {total}'
+    for res in results:
+        rolls = ', '.join(str(x) for x in res.rolls)
+        suc = _suc[res.success]
+        s = roll_fmt.format(
+            person=person, rollstr=rollstr, rolls=rolls, total=res.total,
+            mod=mod, success=suc
+        )
+        output.append(s)
+    if len(results) > 1:
+        output.append(total_fmt.format(total=total))
+    return '\n'.join(output)
+
+
 if __name__ == '__main__':
     import sys
     argv = ' '.join(sys.argv[1:])
     scanner = roll.scanString(argv)
     for res, start, end in scanner:
         st = argv[start:end]
-        print(roller(validate(st, res)))
+        print(roll_format(roller(validate(st, res))))
