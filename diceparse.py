@@ -9,6 +9,19 @@ from pyparsing import (
     nums, NotAny, Optional, Or, Word, WordStart
 )
 
+Operation = namedtuple('Operation', 'partial operator operand')
+KEYS = 'count type sides modifier compare repete reject pool explode'.split()
+PROTOTYPE = dict.fromkeys(KEYS)
+RollSpec = namedtuple('RollSpec', ['rollstr'] + KEYS)
+ResultSpec = namedtuple('ResultSpec', 'rolls total success')
+Result = namedtuple('Result', 'rollspec results total')
+
+modifier_map = {'+': add, '-': sub}
+compare_map = {'<': le, '>': ge}
+reject_mapping = {'\\': nlargest, '/': nsmallest}
+pool_map = {'/<': le, '/>': ge, '/': ge}
+explode_map = {'!<': le, '!>': ge, '!': ge}
+
 
 def make_optional(parser, action, name):
     op = Optional(parser.setParseAction(action)(name), None)
@@ -16,19 +29,8 @@ def make_optional(parser, action, name):
     return op, no
 
 
-# Data types
 def integer_action(s, loc, tok):
     return int(tok[0])
-
-integer = Word(nums).setParseAction(integer_action)
-
-# Basic Dice Types
-standard_type = integer('count') + Literal('d')('type') + integer('sides')
-fate_type = integer('count') + Literal('df')('type') + NotAny(integer)
-
-
-# Operator base
-Operation = namedtuple('Operation', 'partial operator operand')
 
 
 def operator_action(mapping, swap=False):
@@ -46,53 +48,39 @@ def operator_action(mapping, swap=False):
         return (Operation(fp, operator, operand),)
     return closure
 
-# Modifiers
-modifier_map = {'+': add, '-': sub}
-modifier_action = operator_action(modifier_map)
-modifier, _ = make_optional(
-    Or(list(modifier_map.keys())) + integer, modifier_action, 'modifier'
-)
 
-# Comparators
-compare_map = {'<': le, '>': ge}
-compare_action = operator_action(compare_map)
-compare, no_compare = make_optional(
-    Or(list(compare_map.keys())) + integer, compare_action, 'compare'
-)
-
-suffix = modifier+compare
+def mapped_option(mapping, name, swap=False):
+    action = operator_action(mapping, swap=swap)
+    return make_optional(
+        Or(list(mapping.keys())) + integer, action, name
+    )
 
 
-# Repetitions
 def pos_action(pos):
     def action(s, lok, tok):
         return tok[pos]
     return action
 
-repete, _ = make_optional(integer + Literal('#'), pos_action(0), 'repete')
 
-reject_mapping = {'\\': nlargest, '/': nsmallest}
 reject_action = operator_action(reject_mapping, swap=True)
+
+integer = Word(nums).setParseAction(integer_action)
+standard_type = integer('count') + Literal('d')('type') + integer('sides')
+fate_type = integer('count') + Literal('df')('type') + NotAny(integer)
+modifier, _ = mapped_option(modifier_map, 'modifier')
+compare, no_compare = mapped_option(compare_map, 'compare')
+suffix = modifier+compare
+repete, _ = make_optional(integer + Literal('#'), pos_action(0), 'repete')
 reject, no_reject = make_optional(
     integer + Word(r'\/', max=1), reject_action, 'reject'
 )
-pool, no_pool = make_optional(Literal('/') + integer, pos_action(1), 'pool')
-explode, no_explode = make_optional(
-    Literal('!') + integer, pos_action(1), 'explode'
-)
+pool, no_pool = mapped_option(pool_map, 'pool')
+explode, no_explode = mapped_option(explode_map, 'explode')
 no_pool = no_pool + no_explode
-
 standard = repete + reject + standard_type + no_pool + suffix
 fate = repete + no_reject + fate_type + no_pool + modifier + no_compare
 pool = repete + no_reject + standard_type + pool + explode + suffix
-
 roll = WordStart() + Or([standard, pool, fate])
-
-KEYS = 'count type sides modifier compare repete reject pool explode'.split()
-PROTOTYPE = dict.fromkeys(KEYS)
-RollSpec = namedtuple('RollSpec', ['rollstr'] + KEYS)
-ResultSpec = namedtuple('ResultSpec', 'rolls total success')
-Result = namedtuple('Result', 'rollspec results total')
 
 
 def validate(rollstr, result, prototype=None):
@@ -118,7 +106,7 @@ def explode(rolls, sides, trigger):
     newrolls = []
     _last = rolls
     while True:
-        e = sum(d >= trigger for d in _last)
+        e = sum(trigger(d) for d in _last)
         if e:
             _last = [randint(1, sides) for _ in range(e)]
             newrolls.extend(_last)
@@ -133,9 +121,10 @@ def standard_roller(rs):
     if rs.reject:
         rolls = rs.reject.partial(rolls)
     if rs.pool:
+        op = rs.pool.partial
         if rs.explode:
-            rolls.extend(explode(rolls, rs.sides, rs.explode))
-        total = sum(d >= rs.pool for d in rolls)
+            rolls.extend(explode(rolls, rs.sides, rs.explode.partial))
+        total = sum(op(d) for d in rolls)
         success = total >= 1
     else:
         total = sum(rolls)
