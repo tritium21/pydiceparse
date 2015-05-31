@@ -19,7 +19,7 @@ Result = namedtuple('Result', 'rollspec results total')
 modifier_map = {'+': add, '-': sub}
 compare_map = {'<': le, '>': ge}
 reject_mapping = {'\\': nlargest, '/': nsmallest}
-pool_map = {'/<': le, '/>': ge, '/': ge}
+pool_map = {'/<': le, '/>': ge, '/': ge, '\\': le}
 explode_map = {'!<': le, '!>': ge, '!': ge}
 
 
@@ -96,7 +96,7 @@ def fate_roller(rs):
     if rs.modifier:
         total = rs.modifier.partial(total)
     success = total >= 1
-    _str = {-1: "-", 0: " ", 1: "+"}
+    _str = {-1: "[-]", 0: "[_]", 1: "[+]"}
     rolls = [_str[d] for d in rolls]
     spec = ResultSpec(rolls, total, success)
     return spec
@@ -173,17 +173,18 @@ def roll_format(result, person='You'):
     return '\n'.join(output)
 
 
-def roll(instr):
+def roll(instr, person='You'):
     scanner = expression.scanString(argv)
 
     def g():
         for res, start, end in scanner:
             st = argv[start:end]
-            yield roll_format(roller(validate(st, res)))
+            yield roll_format(roller(validate(st, res)), person=person)
     return list(g())
 
 
 if __name__ == '__main__':
     import sys
     argv = ' '.join(sys.argv[1:])
-    print(roll(argv))
+    for line in roll(argv):
+        print(line)
