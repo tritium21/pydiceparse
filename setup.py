@@ -11,4 +11,9 @@ setup(
     install_requires=[
         'pyparsing',
     ],
+    entry_points={
+        'console_scripts': {
+            'pydice = diceparse:main'
+        }
+    }
 )

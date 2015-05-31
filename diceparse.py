@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+from __future__ import print_function
+
+import sys
+
 from collections import namedtuple
 from heapq import nlargest, nsmallest
 from functools import partial
@@ -5,8 +10,7 @@ from operator import add, sub, ge, le
 from random import randint
 
 from pyparsing import (
-    CaselessLiteral as Literal,
-    nums, NotAny, Optional, Or, Word, WordStart
+    CaselessLiteral as Literal, nums, NotAny, Optional, Or, Word, WordStart
 )
 
 Operation = namedtuple('Operation', 'partial operator operand')
@@ -18,7 +22,7 @@ Result = namedtuple('Result', 'rollspec results total')
 
 modifier_map = {'+': add, '-': sub}
 compare_map = {'<': le, '>': ge}
-reject_mapping = {'\\': nlargest, '/': nsmallest}
+reject_mapping = {'/': nlargest, '\\': nsmallest}
 pool_map = {'/<': le, '/>': ge, '/': ge, '\\': le}
 explode_map = {'!<': le, '!>': ge, '!': ge}
 
@@ -96,7 +100,7 @@ def fate_roller(rs):
     if rs.modifier:
         total = rs.modifier.partial(total)
     success = total >= 1
-    _str = {-1: "[-]", 0: "[_]", 1: "[+]"}
+    _str = {-1: "-", 0: " ", 1: "+"}
     rolls = [_str[d] for d in rolls]
     spec = ResultSpec(rolls, total, success)
     return spec
@@ -157,34 +161,50 @@ def roll_format(result, person='You'):
         mod = ' {}{}'.format(*rollspec.modifier[1:])
     else:
         mod = ''
+    head = '{person} rolled {rollstr}: '.format(
+        person=person, rollstr=rollstr.strip()
+    )
+    roll_fmt = '[{rolls}]{mod} = {total}{success}'
+    if len(results) > 1:
+        roll_fmt = 'Roll #{idx} {{' + roll_fmt + '}}'
+    tail = ''
     output = []
-    roll_fmt = '{person} rolled {rollstr}: [{rolls}]{mod} = {total}{success}'
-    total_fmt = 'Total: {total}'
-    for res in results:
+    for idx, res in enumerate(results):
         rolls = ', '.join(str(x) for x in res.rolls)
         suc = _suc[res.success]
         s = roll_fmt.format(
-            person=person, rollstr=rollstr.strip(), rolls=rolls,
+            idx=idx+1, rolls=rolls,
             total=res.total, mod=mod, success=suc,
         )
         output.append(s)
     if len(results) > 1:
-        output.append(total_fmt.format(total=total))
-    return '\n'.join(output)
+        if rollspec.pool is None:
+            tail += '; Total = {}'.format(total)
+        sucl = [x.success for x in results]
+        if None not in sucl:
+            sucs = len([x for x in sucl if x is True])
+            tail += '; Successes = {}'.format(sucs)
+    return head + '; '.join(output) + tail
 
 
 def roll(instr, person='You'):
-    scanner = expression.scanString(argv)
+    scanner = expression.scanString(instr)
 
     def g():
         for res, start, end in scanner:
-            st = argv[start:end]
+            st = instr[start:end]
             yield roll_format(roller(validate(st, res)), person=person)
     return list(g())
 
 
-if __name__ == '__main__':
-    import sys
+def main():
     argv = ' '.join(sys.argv[1:])
-    for line in roll(argv):
-        print(line)
+    try:
+        for line in roll(argv):
+            print(line)
+    except Exception as e:
+        sys.exit(str(e))
+    sys.exit(0)
+
+if __name__ == '__main__':
+    main()
