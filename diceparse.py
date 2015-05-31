@@ -80,7 +80,7 @@ no_pool = no_pool + no_explode
 standard = repete + reject + standard_type + no_pool + suffix
 fate = repete + no_reject + fate_type + no_pool + modifier + no_compare
 pool = repete + no_reject + standard_type + pool + explode + suffix
-roll = WordStart() + Or([standard, pool, fate])
+expression = WordStart() + Or([standard, pool, fate])
 
 
 def validate(rollstr, result, prototype=None):
@@ -164,8 +164,8 @@ def roll_format(result, person='You'):
         rolls = ', '.join(str(x) for x in res.rolls)
         suc = _suc[res.success]
         s = roll_fmt.format(
-            person=person, rollstr=rollstr, rolls=rolls, total=res.total,
-            mod=mod, success=suc
+            person=person, rollstr=rollstr.strip(), rolls=rolls,
+            total=res.total, mod=mod, success=suc,
         )
         output.append(s)
     if len(results) > 1:
@@ -173,10 +173,17 @@ def roll_format(result, person='You'):
     return '\n'.join(output)
 
 
+def roll(instr):
+    scanner = expression.scanString(argv)
+
+    def g():
+        for res, start, end in scanner:
+            st = argv[start:end]
+            yield roll_format(roller(validate(st, res)))
+    return list(g())
+
+
 if __name__ == '__main__':
     import sys
     argv = ' '.join(sys.argv[1:])
-    scanner = roll.scanString(argv)
-    for res, start, end in scanner:
-        st = argv[start:end]
-        print(roll_format(roller(validate(st, res))))
+    print(roll(argv))
