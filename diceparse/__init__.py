@@ -13,6 +13,8 @@ from pyparsing import (
     CaselessLiteral as Literal, nums, NotAny, Optional, Or, Word, WordStart
 )
 
+from diceparse.eote import eoteformat
+
 Operation = namedtuple('Operation', 'partial operator operand')
 KEYS = 'count type sides modifier compare repete reject pool explode'.split()
 PROTOTYPE = dict.fromkeys(KEYS)
@@ -84,10 +86,14 @@ no_pool = no_pool + no_explode
 standard = repete + reject + standard_type + no_pool + suffix
 fate = repete + no_reject + fate_type + no_pool + modifier + no_compare
 pool = repete + no_reject + standard_type + pool + explode + suffix
-expression = WordStart() + Or([standard, pool, fate])
+EOTE = Word('bsadpcf')('starwars')
+expression = WordStart() + Or([standard, pool, fate, EOTE])
 
 
 def validate(rollstr, result, prototype=None):
+    sw = result.get('starwars', None)
+    if sw is not None:
+        return eoteformat, rollstr
     prototype = prototype if prototype is not None else PROTOTYPE
     values = dict(prototype)
     values.update(dict(result))
@@ -140,6 +146,8 @@ def standard_roller(rs):
 
 
 def roller(rs):
+    if len(rs) == 2 and callable(rs[0]):
+        return rs
     typemap = {'df': fate_roller, 'd': standard_roller}
     repete = range(rs.repete if rs.repete is not None else 1)
     _results = []
@@ -152,6 +160,8 @@ def roller(rs):
 
 
 def roll_format(result, person='You'):
+    if len(result) == 2 and callable(result[0]):
+        return result[0](result[1], person=person)
     _suc = {True: ' Success', False: ' Failure', None: ''}
     rollspec = result.rollspec
     rollstr = rollspec.rollstr
