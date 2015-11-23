@@ -10,7 +10,8 @@ from operator import add, sub, ge, le
 from random import randint
 
 from pyparsing import (
-    CaselessLiteral as Literal, nums, NotAny, Optional, Or, Word, WordStart
+    CaselessLiteral as Literal, nums, NotAny, Optional, Or, Word, WordStart,
+    WordEnd
 )
 
 from diceparse.eote import eoteformat
@@ -87,7 +88,7 @@ standard = repete + reject + standard_type + no_pool + suffix
 fate = repete + no_reject + fate_type + no_pool + modifier + no_compare
 pool = repete + no_reject + standard_type + pool + explode + suffix
 EOTE = Word('bsadpcf')('starwars')
-expression = WordStart() + Or([standard, pool, fate, EOTE])
+expression = WordStart() + Or([standard, pool, fate, EOTE]) + WordEnd()
 
 
 def validate(rollstr, result, prototype=None):
