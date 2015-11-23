@@ -11,7 +11,7 @@ from random import randint
 
 from pyparsing import (
     CaselessLiteral as Literal, nums, NotAny, Optional, Or, Word, WordStart,
-    WordEnd
+    WordEnd, ParseException
 )
 
 from diceparse.eote import eoteformat
@@ -198,13 +198,26 @@ def roll_format(result, person='You'):
     return head + '; '.join(output) + tail
 
 
-def roll(instr, person='You'):
+def _roll(instr, person='You'):
     scanner = expression.scanString(instr)
 
     def g():
         for res, start, end in scanner:
             st = instr[start:end]
             yield roll_format(roller(validate(st, res)), person=person)
+    return list(g())
+
+
+def roll(instr, person='You'):
+    strings = instr.split()
+
+    def g():
+        for st in strings:
+            try:
+                res = expression.parseString(st, parseAll=True)
+                yield roll_format(roller(validate(st, res)), person=person)
+            except ParseException:
+                pass
     return list(g())
 
 
