@@ -32,9 +32,8 @@ class Roller(object):
                     yield ma
 
     def __call__(self, instr, who='You'):
-        res = '\n'.join(str(x) for x in self.roll(instr))
         fmt = '{} rolled {}'
-        return fmt.format(who, res)
+        return '\n'.join(fmt.format(who, str(x)) for x in self.roll(instr))
 
 
 class DiceBase(object):
@@ -261,8 +260,8 @@ def main(argv=None):
     )
     parser.add_argument('rolls', nargs='+')
     args = parser.parse_args(args=argv)
-    for r in args.rolls:
-        print(roll(r, args.who))
+    r = ' '.join(args.rolls)
+    print(roll(r, args.who))
 
 if __name__ == '__main__':
     main()
