@@ -16,9 +16,6 @@ setup(
     url='https://github.com/tritium21/pydiceparse',
     license="BSD",
     packages=["diceparse"],
-    install_requires=[
-        'pyparsing',
-    ],
     entry_points={
         'console_scripts': {
             'pydice = diceparse:main'
