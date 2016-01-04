@@ -1,22 +1,9 @@
 from __future__ import print_function
-import collections
+from collections import Counter
 import heapq
 import operator
 import random
 import re
-
-
-class Counter(collections.Counter):
-    def __add__(self, other):
-        if not isinstance(other, collections.Counter):
-            return NotImplemented
-        result = Counter()
-        for elem, count in self.items():
-            result[elem] = count + other[elem]
-        for elem, count in other.items():
-            if elem not in self:
-                result[elem] = count
-        return result
 
 
 class Roller(object):
@@ -132,19 +119,14 @@ class EOTE(DiceBase):
         dispair=5, light=6, dark=7,
     )
 
-    # Advantage = Counter(advantage=1, threat=-1)
-    # Dispair = Counter(dispair=1, success=-1)
-    # Failure = Counter(failure=1, success=-1)
-    # Threat = Counter(threat=1, advantage=-1)
     Advantage = Counter(advantage=1)
-    Dispair = Counter(dispair=1)
-    Failure = Counter(failure=1)
-    Threat = Counter(threat=1)
-
     Blank = Counter()
     Dark = Counter(dark=1)
+    Dispair = Counter(dispair=1)
+    Failure = Counter(failure=1)
     Light = Counter(light=1)
     Success = Counter(success=1)
+    Threat = Counter(threat=1)
     Triumph = Counter(triumph=1)
 
     Difficulty = (
@@ -244,6 +226,52 @@ class EOTE(DiceBase):
         items = ['{} {}'.format(k.title(), v) for k, v in items]
         line = ', '.join(items)
         return '[{}: {}]'.format(instr, line)
+
+
+class EOTECancel(EOTE):
+    def _roll(self, *args, **kwargs):
+        res = super(EOTECancel, self)._roll(*args, **kwargs)
+        self.grossresults = res
+        res = Counter(res)
+        return self._cancel(res)
+
+    def _str_order(self, item):
+        return self._order[item[0]]
+
+    def _str_block(self, items):
+        items = sorted(items, key=self._str_order)
+        items = ['{} {}'.format(k.title(), v) for k, v in items]
+        line = ', '.join(items)
+        return line
+
+    def __str__(self):
+        instr = self._match.string
+        netitems = self.results.items()
+        grossitems = self.grossresults.items()
+
+        gross = self._str_block(grossitems)
+        net = self._str_block(netitems)
+
+        return '[{}: {} (Outcome: {})]'.format(instr, gross, net)
+
+    def _cancel(self, results):
+        results['success'] = (
+            results.get('triumph', 0) + results.get('success', 0)
+        )
+        results['failure'] = (
+            results.get('dispair', 0) + results.get('failure', 0)
+        )
+        self._compare(results, 'success', 'failure')
+        self._compare(results, 'advantage', 'threat')
+        results += self.Blank
+        return results
+
+    def _compare(self, results, a, b):
+        av, bv = results.get(a, 0), results.get(b, 0)
+        high, low = (a, b) if av >= bv else (b, a)
+        value = abs(av-bv)
+        results[high] = value
+        results[low] = 0
 
 
 roll = Roller([Standard, Fate, EOTE])
