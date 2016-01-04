@@ -34,7 +34,7 @@ class DiceBase(object):
 
     @classmethod
     def match(cls, instr):
-        m = re.match(cls.expression, instr, re.X)
+        m = re.match(cls.expression, instr, re.X | re.I)
         if m is None:
             return
         return cls(m)
@@ -83,6 +83,13 @@ class Standard(DiceBase):
         out = '[{instr}: {results}] {total}'
         return out.format(instr=instr, results=results, total=total)
 
+    def _explode(self, rolls, explode, sides):
+            more = sum(1 for x in rolls if x >= explode)
+            if more <= 0:
+                return []
+            more = [random.randint(1, sides) for _ in range(more)]
+            return more + self._explode(more, explode, sides)
+
     def roll(self):
         match = self._match
         gd = match.groupdict()
@@ -92,8 +99,7 @@ class Standard(DiceBase):
         rolls = [random.randint(1, sides) for _ in range(count)]
         if gd['explode']:
             explode = int(gd['explode'])
-            more = sum(1 for x in rolls if x >= explode)
-            rolls += [random.randint(1, sides) for _ in range(more)]
+            rolls += self._explode(rolls, explode, sides)
         if gd['bestop']:
             bestop = self._bestop[gd['bestop']]
             best = int(gd['best'])
@@ -113,7 +119,7 @@ class Standard(DiceBase):
 
 
 class EOTE(DiceBase):
-    expression = r'(?i)^[bsadpcf]+$'
+    expression = r'^[bsadpcf]+$'
     _order = dict(
         success=0, failure=1, advantage=2, threat=3, triumph=4,
         dispair=5, light=6, dark=7,
