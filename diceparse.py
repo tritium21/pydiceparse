@@ -222,25 +222,6 @@ class EOTE(DiceBase):
             force=instr.count('f')
         )
 
-    def __str__(self):
-        instr = self._match.string
-        items = self.results.items()
-
-        def order(item):
-            return self._order[item[0]]
-        items = sorted(items, key=order)
-        items = ['{} {}'.format(k.title(), v) for k, v in items]
-        line = ', '.join(items)
-        return '[{}: {}]'.format(instr, line)
-
-
-class EOTECancel(EOTE):
-    def _roll(self, *args, **kwargs):
-        res = super(EOTECancel, self)._roll(*args, **kwargs)
-        self.grossresults = res
-        res = Counter(res)
-        return self._cancel(res)
-
     def _str_order(self, item):
         return self._order[item[0]]
 
@@ -252,13 +233,27 @@ class EOTECancel(EOTE):
 
     def __str__(self):
         instr = self._match.string
+        items = self.results.items()
+        line = self._str_block(items)
+        return '[{}: {}]'.format(instr, line)
+
+
+class EOTECancel(EOTE):
+    def _roll(self, *args, **kwargs):
+        res = super(EOTECancel, self)._roll(*args, **kwargs)
+        self.grossresults = res
+        res = Counter(res)
+        return self._cancel(res)
+
+    def __str__(self):
+        instr = self._match.string
         netitems = self.results.items()
         grossitems = self.grossresults.items()
 
         gross = self._str_block(grossitems)
         net = self._str_block(netitems)
 
-        return '[{}: {} (Outcome: {})]'.format(instr, gross, net)
+        return '[{}: {}] Outcome: {}'.format(instr, gross, net)
 
     def _cancel(self, results):
         results['success'] = (
