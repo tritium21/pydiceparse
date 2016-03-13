@@ -46,6 +46,31 @@ class DiceBase(object):
         raise NotImplementedError
 
 
+class Select(DiceBase):
+    expression = r'^(\d+)?\[(.*)\]$'
+
+    def roll(self):
+        match = self._match
+        count, blob = match.groups()
+        self.count = count = int(count) if count is not None else 1
+        self.items = items = blob.split(',')
+        if count < len(items):
+            self.result = random.sample(items, count)
+            self.total = count
+        else:
+            self.result = items
+            self.total = len(items)
+
+    def __str__(self):
+        fmt = '{count} selection from [{items}]: {result}'
+        oput = {
+            'count': self.total,
+            'items': ','.join(self.items),
+            'result': ', '.join(self.result),
+        }
+        return fmt.format(**oput)
+
+
 class Fate(DiceBase):
     expression = r'^(?P<count>\d+)df(?P<modifier>[+-]\d+)?$'
 
@@ -275,7 +300,7 @@ class EOTECancel(EOTE):
         results[low] = 0
 
 
-roll = Roller([Standard, Fate, EOTE])
+roll = Roller([Standard, Fate, EOTE, Select])
 
 
 def main(argv=None):
@@ -289,8 +314,7 @@ def main(argv=None):
     )
     parser.add_argument('rolls', nargs='+')
     args = parser.parse_args(args=argv)
-    r = ' '.join(args.rolls)
-    print(roll(r, args.who))
+    print(roll(' '.join(args.rolls), args.who))
 
 if __name__ == '__main__':
     main()
