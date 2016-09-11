@@ -1,6 +1,7 @@
 from __future__ import print_function
 from collections import Counter
 import heapq
+import math
 import operator
 import random
 import re
@@ -89,6 +90,45 @@ class Fate(DiceBase):
         out = '[{instr}: {results}] {total}'
         return out.format(instr=instr, results=results, total=total)
 
+class SR(DiceBase):
+    expression = r"^(?P<count>\d+)sr(?P<explodes>!)?$"
+
+    def roll(self):
+        match = self._match
+        count = int(match.groupdict()["count"])
+        does_explode = True if match.groupdict()["explodes"] == "!" else False
+        rolls = [random.randint(1, 6) for _ in range(count)]
+        if does_explode:
+            explode = len([x for x in rolls if x == 6])
+            while explode:
+                rerolls = [random.randint(1, 6) for _ in range(explode)]
+                rolls.extend(rerolls)
+                explode = len([x for x in rerolls if x == 6])
+        successes = sum(1 for x in rolls if x >= 5)
+        ones = sum(x for x in rolls if x == 1)
+        self.outcome = ""
+        if successes:
+            if ones >= round(count/2):
+                self.outcome = "Success, Glitch"
+            else:
+                self.outcome = "Success"
+        elif not successes:
+            if ones >= round(count/2):
+                self.outcome = "Critical Glitch"
+            else:
+                self.outcome = "Failure"
+        self.results = rolls
+        self.total = successes
+
+    def __str__(self):
+        vals = {
+            "instr": self._match.string,
+            "rolls": self.results,
+            "total": self.total,
+            "outcome": self.outcome,
+        }
+        fmt = "[{instr}: {rolls}] {total} -- {outcome}"
+        return fmt.format(**vals)
 
 class Standard(DiceBase):
     expression = r'''^(?:(?P<best>\d+)(?P<bestop>[/\\]))?
@@ -300,7 +340,7 @@ class EOTECancel(EOTE):
         results[low] = 0
 
 
-roll = Roller([Standard, Fate, EOTE, Select])
+roll = Roller([Standard, SR, Fate, EOTE, Select])
 
 
 def main(argv=None):
