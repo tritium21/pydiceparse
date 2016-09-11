@@ -8,7 +8,7 @@ def read(fname):
 
 setup(
     name="pydiceparse",
-    version="0.3.2",
+    version="0.3.3",
     author="Alex Walters",
     author_email="tritium@sdamon.com",
     description=("Dice syntax parser and roller"),
