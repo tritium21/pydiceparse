@@ -3,8 +3,10 @@ from collections import Counter
 import heapq
 import math
 import operator
-import random
 import re
+
+from random import SystemRandom
+random = SystemRandom()
 
 
 class Roller(object):
