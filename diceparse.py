@@ -91,34 +91,37 @@ class Fate(DiceBase):
         return out.format(instr=instr, results=results, total=total)
 
 class SR(DiceBase):
-    expression = r"^(?P<count>\d+)sr(?P<explodes>!)?$"
+    expression = r"^(?P<count>\d+)s(?P<threshold>\d+)(?P<explodes>!)?$"
 
     def roll(self):
         match = self._match
-        count = int(match.groupdict()["count"])
-        does_explode = True if match.groupdict()["explodes"] == "!" else False
+        gd = match.groupdict()
+        count = int(gd["count"])
+        threshold = int(gd["threshold"])
+        does_explode = True if gd["explodes"] == "!" else False
         rolls = [random.randint(1, 6) for _ in range(count)]
         if does_explode:
             explode = len([x for x in rolls if x == 6])
             while explode:
+                count += explode
                 rerolls = [random.randint(1, 6) for _ in range(explode)]
                 rolls.extend(rerolls)
                 explode = len([x for x in rerolls if x == 6])
-        successes = sum(1 for x in rolls if x >= 5)
+        hits = sum(1 for x in rolls if x >= 5)
         ones = sum(x for x in rolls if x == 1)
         self.outcome = ""
-        if successes:
-            if ones >= round(count/2):
+        if hits >= threshold:
+            if ones * 2 >= count:
                 self.outcome = "Success, Glitch"
             else:
                 self.outcome = "Success"
-        elif not successes:
-            if ones >= round(count/2):
+        else:
+            if ones * 2 >= count:
                 self.outcome = "Critical Glitch"
             else:
                 self.outcome = "Failure"
         self.results = rolls
-        self.total = successes
+        self.total = hits
 
     def __str__(self):
         vals = {
@@ -127,7 +130,7 @@ class SR(DiceBase):
             "total": self.total,
             "outcome": self.outcome,
         }
-        fmt = "[{instr}: {rolls}] {total} -- {outcome}"
+        fmt = "[{instr}: {rolls}] {total} Hits -- {outcome}"
         return fmt.format(**vals)
 
 class Standard(DiceBase):
