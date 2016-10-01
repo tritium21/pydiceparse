@@ -49,31 +49,6 @@ class DiceBase(object):
         raise NotImplementedError
 
 
-class Select(DiceBase):
-    expression = r'^(\d+)?\[(.*)\]$'
-
-    def roll(self):
-        match = self._match
-        count, blob = match.groups()
-        self.count = count = int(count) if count is not None else 1
-        self.items = items = blob.split(',')
-        if count < len(items):
-            self.result = random.sample(items, count)
-            self.total = count
-        else:
-            self.result = items
-            self.total = len(items)
-
-    def __str__(self):
-        fmt = '{count} selection from [{items}]: {result}'
-        oput = {
-            'count': self.total,
-            'items': ','.join(self.items),
-            'result': ', '.join(self.result),
-        }
-        return fmt.format(**oput)
-
-
 class Fate(DiceBase):
     expression = r'^(?P<count>\d+)df(?P<modifier>[+-]\d+)?$'
 
@@ -91,6 +66,36 @@ class Fate(DiceBase):
         total = self.total
         out = '[{instr}: {results}] {total}'
         return out.format(instr=instr, results=results, total=total)
+
+
+class SRA(DiceBase):
+    expression = r"^(?P<attack>\d+)a(?P<defend>\d+)(?P<edge>!)?$"
+
+    def roll(self):
+        match = self._match
+        gd = match.groupdict()
+        attack = int(gd["attack"])
+        defend = int(gd["defend"])
+        attack_threshold = 4 if gd["edge"] == "!" else 5
+        self.attack = [random.randint(1, 6) for _ in range(attack)]
+        self.defend = [random.randint(1, 6) for _ in range(defend)]
+        attack_hits = sum(1 for x in self.attack if x >= attack_threshold)
+        defend_hits = sum(1 for x in self.defend if x >= 5)
+        self.outcome = ""
+        if attack_hits == 0 or attack_hits < defend_hits:
+            self.outcome = "Failure"
+        else:
+            self.outcome = "Success"
+
+    def __str__(self):
+        vals = {
+            "instr": self._match.string,
+            "attack": self.attack,
+            "defend": self.defend,
+            "outcome": self.outcome,
+        }
+        fmt = "[{instr}: {attack} vs. {defend}] -- {outcome}"
+        return fmt.format(**vals)
 
 class SR(DiceBase):
     expression = r"^(?P<count>\d+)s(?P<threshold>\d+)(?P<explodes>!)?$"
@@ -345,7 +350,7 @@ class EOTECancel(EOTE):
         results[low] = 0
 
 
-roll = Roller([Standard, SR, Fate, EOTE, Select])
+roll = Roller([Standard, SR, SRA, Fate, EOTE])
 
 
 def main(argv=None):
