@@ -51,6 +51,7 @@ class DiceBase(object):
 
 class Fate(DiceBase):
     expression = r'^(?P<count>\d+)df(?P<modifier>[+-]\d+)?$'
+    glyphs = {-1: '-', 0: '_', 1: '+'}
 
     def roll(self):
         match = self._match
@@ -62,10 +63,14 @@ class Fate(DiceBase):
 
     def __str__(self):
         instr = self._match.string
-        results = ', '.join({-1: '-', 0: '_', 1: '+'}[k] for k in self.result)
+        results = ', '.join(self.glyphs[k] for k in self.result)
         total = self.total
         out = '[{instr}: {results}] {total}'
         return out.format(instr=instr, results=results, total=total)
+
+
+class UniFate(Fate):
+    glyphs = {-1: u'➖', 0: u'🔲', 1: u'➕'}
 
 
 class SRA(DiceBase):
@@ -350,7 +355,7 @@ class EOTECancel(EOTE):
         results[low] = 0
 
 
-roll = Roller([Standard, SR, SRA, Fate, EOTE])
+roll = Roller([Standard, SR, SRA, UniFate, EOTE])
 
 
 def main(argv=None):
