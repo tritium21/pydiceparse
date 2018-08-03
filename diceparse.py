@@ -179,13 +179,16 @@ random = SystemRandom()
 #        return '[{}: {}]'.format(instr, line)
 
 grammar = """\
+rolls: roll*
 roll: standard | fate
 standard: NUMBER "d" NUMBER
 fate: NUMBER "df"
 
 %import common.INT -> NUMBER
+%import common.WS
+%ignore WS
 """
-parser = Lark(grammar, start="roll")
+parser = Lark(grammar, start="rolls")
 
 
 def roll(spec, who=None):
