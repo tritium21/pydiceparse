@@ -1,6 +1,7 @@
+import operator
 from random import SystemRandom
 
-from lark import Lark, Transformer
+from lark import Lark, Transformer, v_args
 
 random = SystemRandom()
 
@@ -179,20 +180,91 @@ random = SystemRandom()
 #        return '[{}: {}]'.format(instr, line)
 
 grammar = """\
-rolls: roll*
-roll: standard | fate
-standard: NUMBER "d" NUMBER
-fate: NUMBER "df"
+?start: sum+ [comment]
+?sum: product
+    | sum "+" product   -> add
+    | sum "-" product   -> sub
+?product: atom
+    | product "*" atom  -> mul
+    | product "/" atom  -> div
+?atom: number
+    | "-" atom         -> neg
+    | dice_atom
+    | "(" sum ")"
 
-%import common.INT -> NUMBER
-%import common.WS
-%ignore WS
+?dice_atom: pool_atom | fate_atom
+?pool_atom: standard_atom
+    | standard_atom "<=" number -> poolle
+    | standard_atom ">=" number -> poolge
+    | standard_atom "<" number -> poollt
+    | standard_atom ">" number -> poolgt
+?standard_atom: number "d"i number -> standard
+?fate_atom: number "df"i -> fate
+
+?number: INT -> number
+
+?comment: "#" /[^\\n]+/* -> comment
+
+%import common.INT
+%import common.WS_INLINE
+%ignore WS_INLINE
 """
-parser = Lark(grammar, start="rolls")
 
+class RollResult:
+    def __init__(self, total, rolls=None):
+        self.rolls = rolls if rolls is not None else []
+        self.total = total
+
+    def __int__(self):
+        return self.total
+
+    def __repr__(self):
+        return f"[<{self.rolls}> {self.total}]"
+
+    def _binop(self, other, op):
+       return RollResult(op(self.total, other), self.rolls)
+
+    __radd__ = __add__ = lambda s, o: s._binop(o, operator.add)
+    __rsub__ = __sub__ = lambda s, o: s._binop(o, operator.sub)
+    __rmul__ = __mul__ = lambda s, o: s._binop(o, operator.mul)
+    __rfloordiv__ = __floordiv__ = lambda s, o: s._binop(o, operator.floordiv)
+
+
+
+@v_args(inline=True)
+class CalculateTree(Transformer):
+    from operator import add, sub, mul, floordiv as div, neg
+    number = int
+
+    def comment(self, args):
+        return str(args).strip()
+
+    def fate(self, count):
+        rolls = [random.randint(-1, 1) for _ in range(count)]
+        total = sum(x for x in rolls if x > 0)
+        return RollResult(total, rolls)
+
+    def standard(self, count, sides):
+        rolls = [random.randint(1, sides) for _ in range(count)]
+        total = sum(rolls)
+        return RollResult(total, rolls)
+
+    def _pool(self, roll, comp, op):
+        new_total = sum(1 for x in roll.rolls if op(x, comp))
+        roll.total = new_total
+        return roll
+    
+    poolge = lambda s, r, c: s._pool(r, c, operator.ge)
+    poolgt = lambda s, r, c: s._pool(r, c, operator.gt)
+    poolle = lambda s, r, c: s._pool(r, c, operator.le)
+    poollt = lambda s, r, c: s._pool(r, c, operator.lt)
+
+
+parser = Lark(grammar, start='start')
 
 def roll(spec, who=None):
-    return parser.parse(spec)
+    tree = parser.parse(spec)
+    return CalculateTree().transform(tree)
 
 
 def main(argv=None):
