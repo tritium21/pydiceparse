@@ -16,6 +16,9 @@ setup(
     url='https://github.com/tritium21/pydiceparse',
     license="BSD",
     py_modules=["diceparse"],
+    install_required=[
+        'lark-parser>=0.6.3'
+    ],
     entry_points={
         'console_scripts': {
             'pydice = diceparse:main'

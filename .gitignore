@@ -34,3 +34,4 @@ htmlcov
 
 .py2
 /.vs/pydiceparse/v14
+/env
