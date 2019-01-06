@@ -6,60 +6,6 @@ from lark import Lark, Transformer, v_args
 random = SystemRandom()
 
 
-
-#class Standard(DiceBase):
-#    expression = r'''^(?:(?P<best>\d+)(?P<bestop>[/\\]))?
-#                     (?P<count>\d+)d(?P<sides>\d+)
-#                     (?:(?P<poolop>[/\\])(?P<pool>\d+))?
-#                     (?:!(?P<explode>\d+))?
-#                     (?:(?P<modop>[+\-*])(?P<mod>\d+))?$'''
-
-#    _bestop = {'/': heapq.nlargest, '\\': heapq.nsmallest}
-#    _poolop = {'/': operator.ge, '\\': operator.le}
-#    _modop = {'+': operator.add, '-': operator.sub, '*': operator.mul}
-
-#    def __str__(self):
-#        instr = self._match.string
-#        results = ', '.join(str(x) for x in self.results)
-#        total = self.total
-#        out = '[{instr}: {results}] {total}'
-#        return out.format(instr=instr, results=results, total=total)
-
-#    def _explode(self, rolls, explode, sides):
-#            more = sum(1 for x in rolls if x >= explode)
-#            if more <= 0:
-#                return []
-#            more = [random.randint(1, sides) for _ in range(more)]
-#            return more + self._explode(more, explode, sides)
-
-#    def roll(self):
-#        match = self._match
-#        gd = match.groupdict()
-#        best = bestop = poolop = pool = explode = modop = mod = None
-#        count = int(gd['count'])
-#        sides = int(gd['sides'])
-#        rolls = [random.randint(1, sides) for _ in range(count)]
-#        if gd['explode']:
-#            explode = int(gd['explode'])
-#            rolls += self._explode(rolls, explode, sides)
-#        if gd['bestop']:
-#            bestop = self._bestop[gd['bestop']]
-#            best = int(gd['best'])
-#            rolls = bestop(best, rolls)
-#        if gd['poolop']:
-#            poolop = self._poolop[gd['poolop']]
-#            pool = int(gd['pool'])
-#            total = sum(1 for x in rolls if poolop(x, pool))
-#        else:
-#            total = sum(rolls)
-#        if gd['modop']:
-#            modop = self._modop[gd['modop']]
-#            mod = int(gd['mod'])
-#            total = modop(total, mod)
-#        self.results = rolls
-#        self.total = total
-
-
 #class EOTE(DiceBase):
 #    expression = r'^[bsadpcf]+$'
 #    _order = dict(
@@ -179,8 +125,8 @@ random = SystemRandom()
 #        line = self._str_block(items)
 #        return '[{}: {}]'.format(instr, line)
 
-grammar = """\
-?start: sum+ [comment]
+GRAMMAR = """\
+?start: sum [comment]  -> start
 ?sum: product
     | sum "+" product   -> add
     | sum "-" product   -> sub
@@ -188,7 +134,7 @@ grammar = """\
     | product "*" atom  -> mul
     | product "/" atom  -> div
 ?atom: number
-    | "-" atom         -> neg
+    | "-" atom          -> neg
     | dice_atom
     | "(" sum ")"
 
@@ -196,8 +142,8 @@ grammar = """\
 ?pool_atom: standard_atom
     | standard_atom "<=" number -> poolle
     | standard_atom ">=" number -> poolge
-    | standard_atom "<" number -> poollt
-    | standard_atom ">" number -> poolgt
+    | standard_atom "<" number  -> poollt
+    | standard_atom ">" number  -> poolgt
 ?standard_atom: number "d"i number -> standard
 ?fate_atom: number "df"i -> fate
 
@@ -210,25 +156,101 @@ grammar = """\
 %ignore WS_INLINE
 """
 
-class RollResult:
-    def __init__(self, total, rolls=None):
-        self.rolls = rolls if rolls is not None else []
-        self.total = total
+OP_MAP = {
+    operator.add: '+',
+    operator.sub: '-',
+    operator.mul: '*',
+    operator.floordiv: '/',
+    operator.ge: '>=',
+    operator.gt: '>',
+    operator.le: '<=',
+    operator.lt: '<',
+}
+
+class BaseRoll:
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.right = right
+        self.operator = operator
+        left = int(left)
+        right = int(right)
+        self.total = self.operator(left, right)
 
     def __int__(self):
         return self.total
 
     def __repr__(self):
-        return f"[<{self.rolls}> {self.total}]"
+        return (
+            "{self.__class__.__qualname__}"
+            "({self.left}, {self.operator}, {self.right})"
+        ).format(self=self)
+
+    def __str__(self):
+        return "{} {} {}".format(self.left, OP_MAP[self.operator], self.right)
 
     def _binop(self, other, op):
-       return RollResult(op(self.total, other), self.rolls)
+       return BaseRoll(self, op, other)
 
     __radd__ = __add__ = lambda s, o: s._binop(o, operator.add)
     __rsub__ = __sub__ = lambda s, o: s._binop(o, operator.sub)
     __rmul__ = __mul__ = lambda s, o: s._binop(o, operator.mul)
     __rfloordiv__ = __floordiv__ = lambda s, o: s._binop(o, operator.floordiv)
 
+class FateRoll(BaseRoll):
+    def __init__(self, count):
+        self.count = count
+        self.results = [random.randint(-1, 1) for _ in range(self.count)]
+        self.total = sum(x for x in self.results if x > 0)
+
+    def __repr__(self):
+        return "{self.__class__.__qualname__}({self.count})".format(self=self)
+
+    def __str__(self):
+        res = ','.join(str(x) for x in self.results)
+        return "({count}df = [{results}] = {total})".format(count=self.count, results=res, total=self.total)
+
+class StandardRoll(BaseRoll):
+    def __init__(self, count, sides, operator=None, compare=None):
+        self.count = count
+        self.sides = sides
+        self.operator = None
+        self.compare = None
+        self.results = [random.randint(1, sides) for _ in range(count)]
+        self.total = sum(self.results)
+        if compare and operator:
+            self.pool(operator, compare)
+
+    def pool(self, operator, compare):
+        if not self.compare or self.operator:
+            self.operator = operator
+            self.compare = compare
+        self.total = sum(1 for x in self.results if operator(x, compare))
+
+    def __repr__(self):
+        return (
+            "{self.__class__.__qualname__}"
+            "({self.count}, {self.sides}, {self.operator}, {self.compare})"
+        ).format(self=self)
+
+    def __str__(self):
+        op = ""
+        if self.operator:
+            op = OP_MAP[self.operator] + str(self.compare)
+        dicespec = "{}d{}{}".format(self.sides, self.count, op)
+        results = ','.join(str(x) for x in self.results)
+        return "({} = [{}] = {})".format(dicespec, results, self.total)
+
+class CommandResult:
+    def __init__(self, roll, comment=None):
+        self.roll = roll
+        self.total = int(roll)
+        self.comment = (" # " + comment) if comment is not None else ""
+
+    def __repr__(self):
+        return "{self.__class__.__qualname__}({self.rolls}, {self.comment!r})".format(self=self)
+
+    def __str__(self):
+        return "{} = {}{}".format(self.roll, self.total, self.comment)
 
 
 @v_args(inline=True)
@@ -236,22 +258,20 @@ class CalculateTree(Transformer):
     from operator import add, sub, mul, floordiv as div, neg
     number = int
 
+    def start(self, roll, comment=None):
+        return CommandResult(roll, comment)
+
     def comment(self, args):
         return str(args).strip()
 
     def fate(self, count):
-        rolls = [random.randint(-1, 1) for _ in range(count)]
-        total = sum(x for x in rolls if x > 0)
-        return RollResult(total, rolls)
+        return FateRoll(count)
 
     def standard(self, count, sides):
-        rolls = [random.randint(1, sides) for _ in range(count)]
-        total = sum(rolls)
-        return RollResult(total, rolls)
+        return StandardRoll(count, sides)
 
     def _pool(self, roll, comp, op):
-        new_total = sum(1 for x in roll.rolls if op(x, comp))
-        roll.total = new_total
+        roll.pool(op, comp)
         return roll
     
     poolge = lambda s, r, c: s._pool(r, c, operator.ge)
@@ -260,7 +280,7 @@ class CalculateTree(Transformer):
     poollt = lambda s, r, c: s._pool(r, c, operator.lt)
 
 
-parser = Lark(grammar, start='start')
+parser = Lark(GRAMMAR, start='start')
 
 def roll(spec, who=None):
     tree = parser.parse(spec)
