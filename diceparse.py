@@ -1,5 +1,6 @@
 import operator
 from random import SystemRandom
+from functools import total_ordering
 
 from lark import Lark, Transformer, v_args
 
@@ -149,7 +150,7 @@ GRAMMAR = """\
 
 ?number: INT -> number
 
-?comment: "#" /[^\\n]+/* -> comment
+?comment: /[^\\n]+/* -> comment
 
 %import common.INT
 %import common.WS_INLINE
@@ -167,6 +168,7 @@ OP_MAP = {
     operator.lt: '<',
 }
 
+@total_ordering
 class BaseRoll:
     def __init__(self, left, operator, right):
         self.left = left
@@ -178,6 +180,12 @@ class BaseRoll:
 
     def __int__(self):
         return self.total
+
+    def __eq__(self, value):
+        return self.total == value
+
+    def __lt__(self, value):
+        return self.total < value
 
     def __repr__(self):
         return (
@@ -196,6 +204,19 @@ class BaseRoll:
     __rmul__ = __mul__ = lambda s, o: s._binop(o, operator.mul)
     __rfloordiv__ = __floordiv__ = lambda s, o: s._binop(o, operator.floordiv)
 
+class Number(BaseRoll):
+    def __init__(self, num):
+        self.total = int(num)
+
+    def __repr__(self):
+        return (
+            "{self.__class__.__qualname__}"
+            "({self.total)"
+        ).format(self=self)
+
+    def __str__(self):
+        return str(self.total)
+
 class FateRoll(BaseRoll):
     def __init__(self, count):
         self.count = count
@@ -206,7 +227,8 @@ class FateRoll(BaseRoll):
         return "{self.__class__.__qualname__}({self.count})".format(self=self)
 
     def __str__(self):
-        res = ','.join(str(x) for x in self.results)
+        fatemap = {-1: '-', 0: '_', 1:'+'}
+        res = ','.join(fatemap[x] for x in self.results)
         return "({count}df = [{results}] = {total})".format(count=self.count, results=res, total=self.total)
 
 class StandardRoll(BaseRoll):
@@ -215,7 +237,7 @@ class StandardRoll(BaseRoll):
         self.sides = sides
         self.operator = None
         self.compare = None
-        self.results = [random.randint(1, sides) for _ in range(count)]
+        self.results = [random.randint(1, self.sides) for _ in range(self.count)]
         self.total = sum(self.results)
         if compare and operator:
             self.pool(operator, compare)
@@ -256,7 +278,7 @@ class CommandResult:
 @v_args(inline=True)
 class CalculateTree(Transformer):
     from operator import add, sub, mul, floordiv as div, neg
-    number = int
+    number = Number
 
     def start(self, roll, comment=None):
         return CommandResult(roll, comment)
@@ -265,13 +287,13 @@ class CalculateTree(Transformer):
         return str(args).strip()
 
     def fate(self, count):
-        return FateRoll(count)
+        return FateRoll(int(count))
 
     def standard(self, count, sides):
-        return StandardRoll(count, sides)
+        return StandardRoll(int(count), int(sides))
 
     def _pool(self, roll, comp, op):
-        roll.pool(op, comp)
+        roll.pool(op, int(comp))
         return roll
     
     poolge = lambda s, r, c: s._pool(r, c, operator.ge)
