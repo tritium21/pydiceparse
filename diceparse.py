@@ -1,14 +1,14 @@
-from collections import Counter
-import operator
+import collections
+import functools
 import heapq
-from random import SystemRandom
-from functools import total_ordering
 import math
+import operator
+import random as _random
 
-from lark import Lark, Transformer, v_args
-from lark.exceptions import LarkError
+import lark
+import lark.exceptions
 
-random = SystemRandom()
+random = _random.SystemRandom()
 
 GRAMMAR = """\
 ?start: oper [comment]  -> start
@@ -75,15 +75,15 @@ class EOTE:
         despair=5, light=6, dark=7,
     )
 
-    Advantage = Counter(advantage=1)
-    Blank = Counter()
-    Dark = Counter(dark=1)
-    Despair = Counter(despair=1)
-    Failure = Counter(failure=1)
-    Light = Counter(light=1)
-    Success = Counter(success=1)
-    Threat = Counter(threat=1)
-    Triumph = Counter(triumph=1)
+    Advantage = collections.Counter(advantage=1)
+    Blank = collections.Counter()
+    Dark = collections.Counter(dark=1)
+    Despair = collections.Counter(despair=1)
+    Failure = collections.Counter(failure=1)
+    Light = collections.Counter(light=1)
+    Success = collections.Counter(success=1)
+    Threat = collections.Counter(threat=1)
+    Triumph = collections.Counter(triumph=1)
 
     Difficulty = (
         Blank, Failure, Failure + Failure, Threat, Threat,
@@ -185,7 +185,7 @@ class EOTE:
         return '{} = {}'.format(instr, line)
 
 
-@total_ordering
+@functools.total_ordering
 class BaseRoll:
     def __int__(self):
         return self.total
@@ -307,8 +307,8 @@ class StandardRoll(BaseRoll):
         results = ','.join(str(x) for x in self.results)
         return "({} = [{}] = {})".format(dicespec, results, self.total)
 
-@v_args(inline=True)
-class CalculateTree(Transformer):
+@lark.v_args(inline=True)
+class CalculateTree(lark.Transformer):
     from operator import add, sub, mul, truediv, floordiv, neg
     number = Number
 
@@ -345,16 +345,15 @@ class CalculateTree(Transformer):
     poolle = lambda s, r, c: s._pool(r, c, operator.le)
     poollt = lambda s, r, c: s._pool(r, c, operator.lt)
 
-parser = Lark(GRAMMAR, start='start')
+parser = lark.Lark(GRAMMAR, start='start')
 
 def roll(spec, who='You'):
     try:
         tree = parser.parse(spec)
         res = CalculateTree().transform(tree)
         return "{} rolled: {}".format(who, res)
-    except (ArithmeticError, LarkError) as e:
+    except (ArithmeticError, lark.exceptions.LarkError) as e:
         return
-
 
 def main(argv=None):
     import argparse
