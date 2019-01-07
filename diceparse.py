@@ -69,121 +69,46 @@ OP_MAP = {
     heapq.nsmallest: '!!',
 }
 
-class EOTE:
+def eote(instr):
     _order = dict(
         success=0, failure=1, advantage=2, threat=3, triumph=4,
         despair=5, light=6, dark=7,
     )
 
-    Advantage = collections.Counter(advantage=1)
-    Blank = collections.Counter()
-    Dark = collections.Counter(dark=1)
-    Despair = collections.Counter(despair=1)
-    Failure = collections.Counter(failure=1)
-    Light = collections.Counter(light=1)
-    Success = collections.Counter(success=1)
-    Threat = collections.Counter(threat=1)
-    Triumph = collections.Counter(triumph=1)
+    Ad = collections.Counter(advantage=1)
+    Ad2 = collections.Counter(advantage=2)
+    Bl = collections.Counter()
+    Da = collections.Counter(dark=1)
+    Da2 = collections.Counter(dark=2)
+    De = collections.Counter(despair=1)
+    Fa = collections.Counter(failure=1)
+    Fa2 = collections.Counter(failure=2)
+    Li = collections.Counter(light=1)
+    Li2 = collections.Counter(light=2)
+    Su = collections.Counter(success=1)
+    Su2 = collections.Counter(success=2)
+    SuAd = Su + Ad
+    Th = collections.Counter(threat=1)
+    Th2 = collections.Counter(threat=2)
+    ThFa = Th + Fa
+    Tr = collections.Counter(triumph=1)
 
-    Difficulty = (
-        Blank, Failure, Failure + Failure, Threat, Threat,
-        Threat, Threat + Threat, Threat + Failure,
-    )
-    Ability = (
-        Blank, Success, Success, Success + Success, Advantage,
-        Advantage, Advantage + Success, Advantage + Advantage
-    )
-    Boost = (
-        Blank, Blank, Advantage + Advantage, Advantage,
-        Success + Advantage, Success
-    )
-    Setback = (
-        Blank, Blank, Failure, Failure, Threat, Threat
-    )
-    Proficiency = (
-        Blank, Success, Success, Success + Success, Success + Success,
-        Advantage, Success + Advantage, Success + Advantage,
-        Success + Advantage, Advantage + Advantage, Advantage + Advantage,
-        Triumph
-    )
-    Challenge = (
-        Blank, Failure, Failure, Failure + Failure, Failure + Failure, Threat,
-        Threat, Failure + Threat, Failure + Threat, Threat + Threat,
-        Threat + Threat, Despair
-    )
-    Force = (
-        Dark, Dark, Dark, Dark, Dark, Dark, Dark + Dark,
-        Light, Light, Light + Light, Light + Light, Light + Light
-    )
+    def _sum(population, weights, count):
+        return sum(random.choices(population, weights, k=count), Bl)
 
-    def _roll(
-        self,
-        boost=0,
-        setback=0,
-        ability=0,
-        difficulty=0,
-        proficiency=0,
-        challenge=0,
-        force=0
-    ):
-        boost = sum(
-            (random.choice(self.Boost) for _ in range(boost)),
-            self.Blank,
-        )
-        setback = sum(
-            (random.choice(self.Setback) for _ in range(setback)),
-            self.Blank,
-        )
-        ability = sum(
-            (random.choice(self.Ability) for _ in range(ability)),
-            self.Blank,
-        )
-        difficulty = sum(
-            (random.choice(self.Difficulty) for _ in range(difficulty)),
-            self.Blank,
-        )
-        proficiency = sum(
-            (random.choice(self.Proficiency) for _ in range(proficiency)),
-            self.Blank,
-        )
-        challenge = sum(
-            (random.choice(self.Challenge) for _ in range(challenge)),
-            self.Blank,
-        )
-        force = sum(
-            (random.choice(self.Force) for _ in range(force)),
-            self.Blank
-        )
-        result = (
-            boost + setback + ability + difficulty
-            + proficiency + challenge + force
-        )
-        return {k: v for k, v in result.items() if v > 0}
+    boost = _sum([Bl, Ad2, Ad, SuAd, Su], [2, 1, 1, 1, 1], instr.count('b'))
+    setback = _sum([Bl, Fa, Th], [2, 2, 2], instr.count('s'))
+    ability = _sum([Bl, Su, Su2, Ad, SuAd, Ad2], [1, 2, 1, 2, 1, 1], instr.count('a'))
+    difficulty = _sum([Bl, Fa, Fa2, Th, Th2, ThFa], [1, 1, 1, 3, 1, 1], instr.count('d'))
+    proficiency = _sum([Bl, Su, Su2, Ad, SuAd, Ad2, Tr], [1, 2, 2, 1, 3, 2, 1], instr.count('p'))
+    challenge = _sum([Bl, Fa, Fa2, Th, ThFa, Th2, De], [1, 2, 2, 2, 2, 2, 1], instr.count('c'))
+    force = _sum([Da, Da2, Li, Li2], [6, 1, 2, 3], instr.count('f'))
 
-    def __init__(self, instr):
-        self.input = instr = instr.lower()
-        self.results = self._roll(
-            boost=instr.count('b'),
-            setback=instr.count('s'),
-            ability=instr.count('a'),
-            difficulty=instr.count('d'),
-            proficiency=instr.count('p'),
-            challenge=instr.count('c'),
-            force=instr.count('f')
-        )
+    result = (boost + setback + ability + difficulty + proficiency + challenge + force)
+    result = ((k, v) for k, v in sorted(result.items(), key=lambda x: _order[x[0]]) if v > 0)
 
-    def _str_block(self, items):
-        items = sorted(items, key=lambda x:self._order[x[0]])
-        items = ['{} {}'.format(k.title(), v) for k, v in items]
-        line = ', '.join(items)
-        return line
-
-    def __str__(self):
-        instr = self.input
-        items = self.results.items()
-        line = self._str_block(items)
-        return '{} = {}'.format(instr, line)
-
+    line = ', '.join("{} {}".format(k.title(), v) for k, v in result)
+    return "{} = {}".format(instr, line)
 
 @functools.total_ordering
 class BaseRoll:
@@ -319,7 +244,7 @@ class CalculateTree(lark.Transformer):
         return "{}{}".format(str(roll).strip("()"), comment)
 
     def eote(self, args):
-        return EOTE(args)
+        return eote(args)
 
     def comment(self, args):
         return str(args).strip()
