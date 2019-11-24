@@ -246,9 +246,12 @@ class StandardRoll(BaseRoll):
         if self.best_operator:
             best = str(self.best_compare) + OP_MAP[self.best_operator]
         op = ""
+        explode = ""
+        if self.explode_operator:
+            explode = "x{}".format(self.explode_compare)
         if self.operator:
             op = OP_MAP[self.operator] + str(self.compare)
-        dicespec = "{}{}d{}{}".format(best, self.count, self.sides, op)
+        dicespec = "{}{}d{}{}{}".format(best, self.count, self.sides, explode, op)
         results = ','.join(str(x) for x in self.results)
         return "({} = [{}] = {})".format(dicespec, results, self.total)
 
