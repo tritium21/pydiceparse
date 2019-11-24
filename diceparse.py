@@ -35,9 +35,11 @@ GRAMMAR = """\
     | best_atom ">=" number -> poolge
     | best_atom "<" number  -> poollt
     | best_atom ">" number  -> poolgt
-?best_atom: base_atom
-    | number "!" base_atom -> besttop
-    | number "!!" base_atom -> bestbot
+?best_atom: explode_atom
+    | number "!" explode_atom -> besttop
+    | number "!!" explode_atom -> bestbot
+?explode_atom: base_atom
+    | base_atom "x" number -> explodeover
 ?base_atom: number "d"i number -> standard
 
 ?fate_atom: number "df"i -> fate
@@ -178,15 +180,19 @@ class FateRoll(BaseRoll):
         return "({count}df = [{results}] = {total})".format(count=self.count, results=res, total=self.total)
 
 class StandardRoll(BaseRoll):
-    def __init__(self, count, sides, best_operator=None, best_compare=None, operator=None, compare=None):
+    def __init__(self, count, sides, best_operator=None, best_compare=None, operator=None, compare=None, explode_operator=None, explode_compare=None):
         self.count = count
         self.sides = sides
         self.operator = None
         self.compare = None
         self.best_operator = None
         self.best_compare = None
+        self.explode_operator = None
+        self.explode_compare = None
         self.results = self._results = [random.randint(1, self.sides) for _ in range(self.count)]
         self.total = sum(self._results)
+        if explode_compare and explode_operator:
+            self.explode(explode_operator, explode_compare)        
         if best_compare and best_operator:
             self.best(best_operator, best_compare)
         if compare and operator:
@@ -205,6 +211,20 @@ class StandardRoll(BaseRoll):
             self.compare = compare
         inpool = [r for r in self._results if operator(r, compare)]
         self.total = sum(1 for x in inpool)
+
+    def explode(self, operator, compare):
+        if not self.explode_operator or self.explode_compare:
+            self.explode_operator = operator
+            self.explode_compare = compare
+        def _explode_check(r_set):
+            return sum(1 for r in r_set if self.explode_operator(r, self.explode_compare))
+        new_rolls = _explode_check(self._results)
+        while new_rolls > 0:
+            new_res = [random.randint(1, self.sides) for _ in range(new_rolls)]
+            new_rolls = _explode_check(new_res)
+            self._results += new_res
+        self.results = self._results
+        self.total = sum(self._results)
 
     def __repr__(self):
         args_i = (
@@ -259,6 +279,10 @@ class CalculateTree(lark.Transformer):
         roll.pool(op, int(comp))
         return roll
     
+    def _explode(self, roll, comp, op):
+        roll.explode(op, int(comp))
+        return roll
+
     def _best(self, roll, comp, op):
         roll.best(op, int(comp))
         return roll
@@ -269,6 +293,7 @@ class CalculateTree(lark.Transformer):
     poolgt = lambda s, r, c: s._pool(r, c, operator.gt)
     poolle = lambda s, r, c: s._pool(r, c, operator.le)
     poollt = lambda s, r, c: s._pool(r, c, operator.lt)
+    explodeover = lambda s, r, c: s._explode(r, c, operator.ge)
 
 parser = lark.Lark(GRAMMAR, start='start')
 
