@@ -10,49 +10,6 @@ import lark.exceptions
 
 random = _random.SystemRandom()
 
-GRAMMAR = """\
-?start: item ("|" item)* -> start
-?item: oper [comment]  -> item
-?oper: sum | eote_atom
-
-?eote_atom: /[bsadpcf]+/i -> eote
-
-?sum: product
-    | sum "+" product   -> add
-    | sum "-" product   -> sub
-?product: atom
-    | product "*" atom  -> mul
-    | product "//" atom  -> floordiv
-    | product "/" atom  -> truediv
-?atom: number
-    | "-" atom          -> neg
-    | dice_atom
-    | "(" sum ")"
-
-?dice_atom: standard_atom | fate_atom
-
-?standard_atom: best_atom
-    | best_atom "<=" number -> poolle
-    | best_atom ">=" number -> poolge
-    | best_atom "<" number  -> poollt
-    | best_atom ">" number  -> poolgt
-?best_atom: explode_atom
-    | number "!" explode_atom -> besttop
-    | number "!!" explode_atom -> bestbot
-?explode_atom: base_atom
-    | base_atom "x" number -> explodeover
-?base_atom: number "d"i number -> standard
-
-?fate_atom: number "df"i -> fate
-
-?number: INT -> number
-
-?comment: " " /[^\\n|]+/* -> comment
-
-%import common.INT
-%import common.WS_INLINE
-%ignore WS_INLINE
-"""
 
 def truediv(left, right):
     "Integer division, ceil."
@@ -305,6 +262,50 @@ class CalculateTree(lark.Transformer):
     poollt = lambda s, r, c: s._pool(r, c, operator.lt)
     explodeover = lambda s, r, c: s._explode(r, c, operator.ge)
 
+GRAMMAR = """\
+?start: item ("|" item)* -> start
+?item: oper [comment]  -> item
+?oper: sum | eote_atom
+
+?eote_atom: /[bsadpcf]+/i -> eote
+
+?sum: product
+    | sum "+" product   -> add
+    | sum "-" product   -> sub
+?product: atom
+    | product "*" atom  -> mul
+    | product "//" atom  -> floordiv
+    | product "/" atom  -> truediv
+?atom: number
+    | "-" atom          -> neg
+    | dice_atom
+    | "(" sum ")"
+
+?dice_atom: standard_atom | fate_atom
+
+?standard_atom: best_atom
+    | best_atom "<=" number -> poolle
+    | best_atom ">=" number -> poolge
+    | best_atom "<" number  -> poollt
+    | best_atom ">" number  -> poolgt
+?best_atom: explode_atom
+    | number "!" explode_atom -> besttop
+    | number "!!" explode_atom -> bestbot
+?explode_atom: base_atom
+    | base_atom "x" number -> explodeover
+?base_atom: number "d"i number -> standard
+
+?fate_atom: number "df"i -> fate
+
+?number: INT -> number
+
+?comment: " " /[^\\n|]+/* -> comment
+
+%import common.INT
+%import common.WS_INLINE
+%ignore WS_INLINE
+"""
+
 parser = lark.Lark(GRAMMAR, start='start')
 
 def rolls(spec, who='You'):
@@ -314,7 +315,6 @@ def rolls(spec, who='You'):
         for line in res:
             yield "{} rolled: {}".format(who, line)
     except (ArithmeticError, lark.exceptions.LarkError) as e:
-        raise
         return
 
 def roll(spec, who='You'):
