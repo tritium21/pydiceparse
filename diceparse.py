@@ -73,6 +73,7 @@ OP_MAP = {
 }
 
 def eote(instr):
+    instr = instr.lower()
     _order = dict(
         success=0, failure=1, advantage=2, threat=3, triumph=4,
         despair=5, light=6, dark=7,
