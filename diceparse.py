@@ -170,7 +170,7 @@ class FateRoll(BaseRoll):
     def __init__(self, count):
         self.count = count
         self.results = [random.randint(-1, 1) for _ in range(self.count)]
-        self.total = sum(x for x in self.results if x > 0)
+        self.total = sum(x for x in self.results)
 
     def __repr__(self):
         return "{self.__class__.__qualname__}({self.count})".format(self=self)
