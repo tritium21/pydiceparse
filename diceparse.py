@@ -1,9 +1,11 @@
 import collections
+import collections.abc
 import functools
 import heapq
 import math
 import operator
 import random as _random
+# import types
 
 import lark
 import lark.exceptions
@@ -124,6 +126,12 @@ class Number(BaseRoll):
     def __str__(self):
         return str(self.total)
 
+    def __int__(self):
+        return self.total
+
+    def __index__(self):
+        return self.total
+
 class FateRoll(BaseRoll):
     def __init__(self, count):
         self.count = count
@@ -156,6 +164,18 @@ class StandardRoll(BaseRoll):
             self.best(best_operator, best_compare)
         if compare and operator:
             self.pool(operator, compare)
+
+    def roll_again(self):
+        return type(self)(
+            self.count,
+            self.sides,
+            self.best_operator,
+            self.best_compare,
+            self.operator,
+            self.compare,
+            self.explode_operator,
+            self.explode_compare,
+        )
 
     def best(self, operator, compare):
         if not self.best_compare or self.best_operator:
@@ -224,12 +244,15 @@ class CalculateTree(lark.Transformer):
         for item in items:
             yield from item
 
-    def item(self, roll, comment=None):
+    def item(self, rolls, comment=None):
         comment = (" # " + comment) if comment is not None else ""
-        if isinstance(roll, Math):
-            yield "{} = {}{}".format(roll, int(roll), comment)
-            return
-        yield "{}{}".format(str(roll).strip("()"), comment)
+        if not isinstance(rolls, collections.abc.Iterable):
+            rolls = [rolls]
+        for roll in rolls:
+            if isinstance(roll, Math):
+                yield "{} = {}{}".format(roll, int(roll), comment)
+                continue
+            yield "{}{}".format(str(roll).strip("()"), comment)
 
     def eote(self, args):
         return eote(args)
@@ -239,6 +262,10 @@ class CalculateTree(lark.Transformer):
 
     def fate(self, count):
         return FateRoll(int(count))
+
+    def repeat(self, count, roll):
+        for _ in range(count):
+            yield roll.roll_again()
 
     def standard(self, count, sides):
         return StandardRoll(int(count), int(sides))
@@ -282,7 +309,10 @@ GRAMMAR = """\
     | dice_atom
     | "(" sum ")"
 
-?dice_atom: standard_atom | fate_atom
+?dice_atom: standard | fate_atom
+
+?standard: standard_atom
+    | number "#" standard_atom -> repeat
 
 ?standard_atom: best_atom
     | best_atom "<=" number -> poolle
