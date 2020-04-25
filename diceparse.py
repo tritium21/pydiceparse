@@ -228,6 +228,7 @@ class CalculateTree(lark.Transformer):
         comment = (" # " + comment) if comment is not None else ""
         if isinstance(roll, Math):
             yield "{} = {}{}".format(roll, int(roll), comment)
+            return
         yield "{}{}".format(str(roll).strip("()"), comment)
 
     def eote(self, args):
