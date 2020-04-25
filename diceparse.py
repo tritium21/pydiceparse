@@ -11,7 +11,8 @@ import lark.exceptions
 random = _random.SystemRandom()
 
 GRAMMAR = """\
-?start: oper [comment]  -> start
+?start: item ("|" item)* -> start
+?item: oper [comment]  -> item
 ?oper: sum | eote_atom
 
 ?eote_atom: /[bsadpcf]+/i -> eote
@@ -46,7 +47,7 @@ GRAMMAR = """\
 
 ?number: INT -> number
 
-?comment: " " /[^\\n]+/* -> comment
+?comment: " " /[^\\n|]+/* -> comment
 
 %import common.INT
 %import common.WS_INLINE
@@ -260,11 +261,16 @@ class CalculateTree(lark.Transformer):
     from operator import add, sub, mul, truediv, floordiv, neg
     number = Number
 
-    def start(self, roll, comment=None):
+
+    def start(self, *items):
+        for item in items:
+            yield from item
+
+    def item(self, roll, comment=None):
         comment = (" # " + comment) if comment is not None else ""
         if isinstance(roll, Math):
-            return "{} = {}{}".format(roll, int(roll), comment)
-        return "{}{}".format(str(roll).strip("()"), comment)
+            yield "{} = {}{}".format(roll, int(roll), comment)
+        yield "{}{}".format(str(roll).strip("()"), comment)
 
     def eote(self, args):
         return eote(args)
@@ -300,13 +306,19 @@ class CalculateTree(lark.Transformer):
 
 parser = lark.Lark(GRAMMAR, start='start')
 
-def roll(spec, who='You'):
+def rolls(spec, who='You'):
     try:
         tree = parser.parse(spec)
         res = CalculateTree().transform(tree)
-        return "{} rolled: {}".format(who, res)
+        for line in res:
+            yield "{} rolled: {}".format(who, line)
     except (ArithmeticError, lark.exceptions.LarkError) as e:
+        raise
         return
+
+def roll(spec, who='You'):
+    res = list(rolls(spec, who))
+    return '\n'.join(res)
 
 def main(argv=None):
     import argparse
