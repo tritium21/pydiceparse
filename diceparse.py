@@ -176,7 +176,7 @@ class FateRoll(BaseRoll):
         return "{self.__class__.__qualname__}({self.count})".format(self=self)
 
     def __str__(self):
-        fatemap = {-1: '-', 0: '_', 1:'+'}
+        fatemap = {-1: '[-]', 0: '[ ]', 1:'[+]'}
         res = ','.join(fatemap[x] for x in self.results)
         return "({count}df = [{results}] = {total})".format(count=self.count, results=res, total=self.total)
 
