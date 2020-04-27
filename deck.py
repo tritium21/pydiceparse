@@ -77,6 +77,8 @@ class Deck:
         """
         Select <count> random cards from the deck, and replace them exactly where they were
         """
+        if count >= len(self._deck):
+            return self._deck
         return rng.sample(self._deck, count)
 
     def shuffle(self, rng=random):
