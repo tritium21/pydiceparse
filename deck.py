@@ -1,4 +1,3 @@
-import collections
 import enum
 import itertools
 import random
@@ -54,7 +53,14 @@ class Card:
 
 class Deck:
     def __init__(self, include_jokers=True):
-        self._data = list(
+        self._include_jokers = include_jokers
+        self._discard = []
+        self._deck = []
+        self.reset()
+        
+    def reset(self):
+        self._discard.clear()
+        self._deck[:] = list(
             map(
                 Card,
                 itertools.product(
@@ -62,8 +68,8 @@ class Deck:
                 ),
             )
         )
-        if include_jokers:
-            self._data.extend(
+        if self._include_jokers:
+            self._deck.extend(
                 Card(joker=v) for v in Joker.__members__.values()
             )
 
@@ -71,5 +77,20 @@ class Deck:
         """
         Select a random card from the deck, and replace it exactly where it was
         """
-        return rng.choice(self._data)
+        return rng.choice(self._deck)
 
+    def shuffle(self, rng=random):
+        self._deck.extend(self._discard)
+        self._discard.clear()
+        rng.shuffle(self._deck)
+
+    def deal(self):
+        card = self._deck.pop()
+        self._discard.append(card)
+        return card
+
+    def cut(self, depth=None, rng=random):
+        depth = rng.randrange(len(self._deck)) if depth is None else int(depth)
+        if depth > len(self._deck):
+            raise ValueError()
+        self._deck[:] = [*self._deck[depth:], *self._deck[:depth]]
