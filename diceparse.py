@@ -5,7 +5,6 @@ import heapq
 import math
 import operator
 import random as _random
-# import types
 
 import lark
 import lark.exceptions
@@ -75,6 +74,9 @@ def eote(instr):
 
 @functools.total_ordering
 class BaseRoll:
+    def __index__(self):
+        return self.total
+
     def __int__(self):
         return self.total
 
@@ -126,11 +128,6 @@ class Number(BaseRoll):
     def __str__(self):
         return str(self.total)
 
-    def __int__(self):
-        return self.total
-
-    def __index__(self):
-        return self.total
 
 class FateRoll(BaseRoll):
     def __init__(self, count):
