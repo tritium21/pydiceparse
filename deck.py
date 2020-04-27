@@ -63,9 +63,13 @@ class Deck:
             )
         )
         if include_jokers:
-            self._data.append(Card(joker=Joker.Red))
-            self._data.append(Card(joker=Joker.Black))
+            self._data.extend(
+                Card(joker=v) for v in Joker.__members__.values()
+            )
 
-    def draw(self, rng=random):
+    def pick(self, rng=random):
+        """
+        Select a random card from the deck, and replace it exactly where it was
+        """
         return rng.choice(self._data)
 
