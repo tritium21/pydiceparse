@@ -93,6 +93,6 @@ class Deck:
 
     def cut(self, depth=None, rng=random):
         depth = rng.randrange(len(self._deck)) if depth is None else int(depth)
-        if depth > len(self._deck):
-            raise ValueError()
+        if depth >= len(self._deck):
+            return
         self._deck[:] = [*self._deck[depth:], *self._deck[:depth]]
