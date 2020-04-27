@@ -73,11 +73,11 @@ class Deck:
                 Card(joker=v) for v in Joker.__members__.values()
             )
 
-    def pick(self, rng=random):
+    def pick(self, count=1, rng=random):
         """
-        Select a random card from the deck, and replace it exactly where it was
+        Select <count> random cards from the deck, and replace them exactly where they were
         """
-        return rng.choice(self._deck)
+        return rng.sample(self._deck, count)
 
     def shuffle(self, rng=random):
         self._deck.extend(self._discard)
