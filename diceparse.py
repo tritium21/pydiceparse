@@ -252,7 +252,7 @@ class CalculateTree(lark.Transformer):
             yield "{}{}".format(str(roll).strip("()"), comment)
 
     def eote(self, args):
-        return eote(args)
+        return (eote(args),)
 
     def comment(self, args):
         return str(args).strip()

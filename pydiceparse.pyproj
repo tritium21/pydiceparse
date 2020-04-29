@@ -27,6 +27,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitignore" />
+    <Content Include="Dockerfile" />
     <Content Include="README.rst" />
     <Content Include="requirements.txt" />
   </ItemGroup>
