@@ -11,9 +11,8 @@ class TableRoller(collections.abc.MutableMapping):
         self.db = pickledb.load(self.db_path, True)
 
     def create(self, name, data):
-        if not isinstance(data, str):
-            raise ValueError
-        data = [d.strip() for d in data.split('\n')]
+        if isinstance(data, str):
+            data = [d.strip() for d in data.split('\n')]
         self.db.set(name, data)
 
     update = create
