@@ -45,4 +45,4 @@ class TableRoller(collections.abc.MutableMapping):
         return len(self.db)
 
     def __contains__(self, x):
-        return x in self.db
+        return self.db.exists(x)
