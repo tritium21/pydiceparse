@@ -24,6 +24,9 @@
     </Compile>
     <Compile Include="diceparse.py" />
     <Compile Include="setup.py" />
+    <Compile Include="table.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitignore" />
