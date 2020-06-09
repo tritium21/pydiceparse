@@ -8,14 +8,14 @@ def read(fname):
 
 setup(
     name="pydiceparse",
-    version="0.5.1.3",
+    version="0.5.1.4",
     author="Alex Walters",
     author_email="tritium@sdamon.com",
     description=("Dice syntax parser and roller"),
     long_description=read('README.rst'),
     url='https://github.com/tritium21/pydiceparse',
     license="BSD",
-    py_modules=["diceparse", "deck", "table"],
+    py_modules=["diceparse"],
     install_requires=[
         'lark-parser>=0.6.3'
     ],
